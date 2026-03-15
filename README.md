@@ -1,58 +1,58 @@
 # mtproxy-logs-panel
 
-Alpha release.
+Альфа-версия.
 
-`mtproxy-logs-panel` is the application layer for managing `MTProxy` secret links.
+`mtproxy-logs-panel` — это прикладной слой для управления `MTProxy` secret-ссылками.
 
-It includes:
+Внутри:
 
-- Express API
-- Nuxt panel
-- MySQL schema
-- secret management
-- slot history
-- log import
-- connection statistics
-- grouped secret links
+- `Express` API
+- панель на `Nuxt`
+- схема `MySQL`
+- управление secret-ссылками
+- история слотов
+- импорт логов
+- статистика подключений
+- группировка ссылок
 
-This repository is meant to be used together with `mtproxy-logs`.
+Этот репозиторий предполагается использовать вместе с `mtproxy-logs`.
 
-## Status
+## Статус
 
-This is a public alpha build.
+Это публичная альфа-версия.
 
-- schema and env names may still change
-- install flow is still being cleaned up
-- current UI is usable, but not final
-- do not publish real secrets, configs or server passwords
+- схема БД и имена env-переменных ещё могут меняться
+- процесс установки ещё приводится в порядок
+- текущий UI уже рабочий, но ещё не финальный
+- не публикуй реальные `secret`, конфиги и серверные пароли
 
-## Stack
+## Стек
 
 - Node.js
 - Express
 - MySQL
 - Nuxt 4
 
-## Repository layout
+## Структура репозитория
 
 - `api/`
-  REST API, DB init scripts, secret sync, log import.
+  REST API, инициализация БД, sync secret, импорт логов.
 - `web/`
   Nuxt frontend.
 
-## Requirements
+## Требования
 
 - Node.js 20+
-- MySQL 8+ or MariaDB
-- a working `mtproxy-logs` runtime on the same host or reachable environment
+- MySQL 8+ или MariaDB
+- рабочий `mtproxy-logs` runtime на том же сервере или в доступной среде
 
-## API env
+## Переменные API
 
-Start from:
+Начни с:
 
 - [api/.env.example](api/.env.example)
 
-Important variables:
+Ключевые переменные:
 
 - `DB_*`
 - `JWT_SECRET`
@@ -65,7 +65,7 @@ Important variables:
 - `MTPROXY_SYNC_COMMAND`
 - `MTPROXY_LOG_PATH`
 
-## Local install
+## Локальная установка
 
 ### API
 
@@ -86,26 +86,25 @@ npm install
 npm run build
 ```
 
-For local development:
+Для локальной разработки:
 
 ```bash
 cd web
 NUXT_PUBLIC_API_BASE=http://127.0.0.1:3210/api npm run dev
 ```
 
-## Runtime model
+## Модель работы
 
-The panel assumes:
+Панель исходит из того, что:
 
-- active secrets are stored in MySQL
-- `scripts/sync-mtproxy.mjs` writes `/etc/mtproxy/managed_secrets.list`
-- the runtime service restart is triggered via `MTPROXY_SYNC_COMMAND`
-- `scripts/import-mtproxy-log.mjs` imports `MTP_EVENT` log lines from `MTProxy`
+- активные `secret` хранятся в MySQL
+- `scripts/sync-mtproxy.mjs` пишет `/etc/mtproxy/managed_secrets.list`
+- runtime-сервис перезапускается через `MTPROXY_SYNC_COMMAND`
+- `scripts/import-mtproxy-log.mjs` импортирует строки `MTP_EVENT` из логов `MTProxy`
 
-## Production notes
+## Production-заметки
 
-- keep the API bound to `127.0.0.1`
-- reverse-proxy `/api` through nginx
-- serve the built Nuxt app as static files
-- never commit real `.env`, generated configs or server credentials
-
+- API лучше держать на `127.0.0.1`
+- `/api` нужно проксировать через `nginx`
+- собранный Nuxt нужно отдавать как статические файлы
+- нельзя коммитить реальные `.env`, сгенерированные конфиги и серверные креды
