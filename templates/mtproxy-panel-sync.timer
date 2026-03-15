@@ -1,0 +1,11 @@
+[Unit]
+Description=Run MTProxy Logs Panel Sync every 5 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Unit=mtproxy-panel-sync.service
+
+[Install]
+WantedBy=timers.target
+

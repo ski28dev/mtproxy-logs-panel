@@ -1,0 +1,11 @@
+[Unit]
+Description=Run MTProxy Logs Panel Log Import every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Unit=mtproxy-panel-import-log.service
+
+[Install]
+WantedBy=timers.target
+

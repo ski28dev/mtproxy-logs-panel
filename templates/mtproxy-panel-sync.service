@@ -1,0 +1,11 @@
+[Unit]
+Description=MTProxy Logs Panel Sync
+After=network.target mtproxy.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=__API_DIR__
+ExecStart=/usr/local/bin/mtproxy-panel-sync
+

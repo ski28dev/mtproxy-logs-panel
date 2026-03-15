@@ -1,0 +1,2 @@
+mtpanel ALL=(root) NOPASSWD: /usr/local/bin/mtproxy-panel-sync
+

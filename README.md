@@ -108,3 +108,36 @@ NUXT_PUBLIC_API_BASE=http://127.0.0.1:3210/api npm run dev
 - `/api` нужно проксировать через `nginx`
 - собранный Nuxt нужно отдавать как статические файлы
 - нельзя коммитить реальные `.env`, сгенерированные конфиги и серверные креды
+
+## Установка на чистый Ubuntu-сервер
+
+Минимальный сценарий:
+
+```bash
+git clone https://github.com/ski28dev/mtproxy-logs-panel.git
+cd mtproxy-logs-panel
+sudo chmod +x scripts/install-panel.sh
+sudo PANEL_HOST=your-server-ip MTPROXY_HOST=your-server-ip ./scripts/install-panel.sh
+```
+
+Что делает installer:
+
+- ставит `nginx`, `mariadb`, `nodejs`
+- создаёт системного пользователя `mtpanel`
+- копирует `api` и `web` в `/opt/mtproxy-logs-panel`
+- ставит зависимости и собирает фронт
+- создаёт `.env`
+- создаёт БД и admin-пользователя
+- ставит `systemd`-сервисы и таймеры
+- настраивает `nginx` на `8088/tcp`
+
+После установки:
+
+- панель доступна на `http://your-server-ip:8088/`
+- данные админа дублируются в `/root/mtproxy-logs-panel-info.txt`
+
+Если `mtproxy-logs` уже установлен на этом же сервере, панель сразу сможет:
+
+- импортировать текущий `Initial MTProxy`
+- писать `managed_secrets.list`
+- импортировать `MTP_EVENT` из `/var/log/mtproxy/mtproxy.log`
