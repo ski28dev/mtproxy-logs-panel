@@ -1,0 +1,24 @@
+{
+  "name": "mtproxy-panel-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "init-db": "node scripts/init-db.mjs",
+    "seed-admin": "node scripts/seed-admin.mjs",
+    "sync-mtproxy": "node scripts/sync-mtproxy.mjs",
+    "import-log": "node scripts/import-mtproxy-log.mjs"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.14.5",
+    "zod": "^3.24.4"
+  }
+}

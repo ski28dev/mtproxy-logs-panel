@@ -1,0 +1,10 @@
+.DS_Store
+api/node_modules
+web/node_modules
+web/.nuxt
+web/.output
+web/dist
+api/.env
+api/.env.local
+*.log
+
