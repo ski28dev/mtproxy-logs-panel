@@ -1,6 +1,6 @@
 # mtproxy-logs-panel
 
-Альфа-версия.
+Альфа-версия `v0.5.0`.
 
 `mtproxy-logs-panel` — это прикладной слой для управления `MTProxy` secret-ссылками.
 

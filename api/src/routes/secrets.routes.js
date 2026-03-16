@@ -4,8 +4,10 @@ import { asyncHandler } from '../utils/async-handler.js';
 import {
   activateSecret,
   createSecret,
+  deleteSecret,
   getSecretStats,
   listSecretEvents,
+  listSecretUniqueIps,
   listSecrets,
   revokeSecret,
   rotateSecret,
@@ -83,6 +85,16 @@ router.get(
   })
 );
 
+router.get(
+  '/:id/unique-ips',
+  asyncHandler(async (req, res) => {
+    const secretId = Number.parseInt(req.params.id, 10);
+    const limit = Number.parseInt(req.query.limit, 10) || 200;
+    const uniqueIps = await listSecretUniqueIps(secretId, limit);
+    res.json({ ok: true, uniqueIps });
+  })
+);
+
 router.post(
   '/:id/revoke',
   asyncHandler(async (req, res) => {
@@ -108,6 +120,16 @@ router.post(
   asyncHandler(async (req, res) => {
     const secretId = Number.parseInt(req.params.id, 10);
     const secret = await rotateSecret(secretId);
+    const sync = await runSyncCommand();
+    res.json({ ok: true, secret, sync });
+  })
+);
+
+router.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const secretId = Number.parseInt(req.params.id, 10);
+    const secret = await deleteSecret(secretId);
     const sync = await runSyncCommand();
     res.json({ ok: true, secret, sync });
   })

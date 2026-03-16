@@ -9,11 +9,13 @@ const api = useApi();
 const { admin, logout } = useAuth();
 
 const summary = ref<any>(null);
+const mtproxyHealth = ref<any>(null);
 const secrets = ref<any[]>([]);
 const selectedSecret = ref<any | null>(null);
 const selectedStats = ref<any | null>(null);
 const events = ref<any[]>([]);
-const detailsTab = ref<'events' | 'hourly' | 'daily'>('events');
+const uniqueIps = ref<any[]>([]);
+const detailsTab = ref<'events' | 'ips' | 'hourly' | 'daily'>('events');
 const detailsSection = ref<HTMLElement | null>(null);
 const isCreateModalOpen = ref(false);
 const editingSecretId = ref<number | null>(null);
@@ -26,6 +28,7 @@ const loading = reactive({
   create: false,
   sync: false,
   events: false,
+  ips: false,
   stats: false,
   meta: false
 });
@@ -126,6 +129,14 @@ const filteredSecrets = computed(() => {
   });
 });
 
+const selectedHourlyHistory = computed(() =>
+  selectedStats.value?.historyHourly ? [...selectedStats.value.historyHourly].reverse() : []
+);
+
+const selectedDailyHistory = computed(() =>
+  selectedStats.value?.historyDaily ? [...selectedStats.value.historyDaily].reverse() : []
+);
+
 const groupedSecrets = computed(() => {
   const groups = new Map<string, any[]>();
 
@@ -171,6 +182,7 @@ async function loadDashboard() {
       api<any>('/secrets')
     ]);
     summary.value = statusResponse.summary;
+    mtproxyHealth.value = statusResponse.health;
     secrets.value = secretsResponse.secrets;
   } catch (error: any) {
     errorMessage.value = error?.data?.message || 'Не удалось загрузить данные';
@@ -296,12 +308,29 @@ async function toggleSecret(secret: any) {
   }
 }
 
-async function rotateSecret(secret: any) {
-  await api(`/secrets/${secret.id}/rotate`, { method: 'POST' });
+async function refreshSecret(secret: any) {
   await loadDashboard();
   if (selectedSecret.value?.id === secret.id) {
     await refreshSelectedSecretDetails();
   }
+  toast.success('Данные обновлены');
+}
+
+async function deleteSecret(secret: any) {
+  const confirmed = window.confirm(`Точно удалить ${secret.label}?`);
+  if (!confirmed) {
+    return;
+  }
+
+  await api(`/secrets/${secret.id}`, { method: 'DELETE' });
+  if (selectedSecret.value?.id === secret.id) {
+    selectedSecret.value = null;
+    selectedStats.value = null;
+    events.value = [];
+    uniqueIps.value = [];
+  }
+  await loadDashboard();
+  toast.success('Ссылка удалена');
 }
 
 async function manualSync() {
@@ -328,16 +357,20 @@ async function showSecret(secret: any) {
   await nextTick();
   detailsSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   loading.events = true;
+  loading.ips = true;
   loading.stats = true;
   try {
-    const [eventsResponse, statsResponse] = await Promise.all([
+    const [eventsResponse, uniqueIpsResponse, statsResponse] = await Promise.all([
       api<any>(`/secrets/${secret.id}/events`),
+      api<any>(`/secrets/${secret.id}/unique-ips`),
       api<any>(`/secrets/${secret.id}/stats`)
     ]);
     events.value = eventsResponse.events;
+    uniqueIps.value = uniqueIpsResponse.uniqueIps;
     selectedStats.value = statsResponse.stats;
   } finally {
     loading.events = false;
+    loading.ips = false;
     loading.stats = false;
   }
 }
@@ -350,34 +383,63 @@ onMounted(loadDashboard);
     <header class="dashboard-header">
       <div>
         <div class="eyebrow">Панель MTProto</div>
-        <h1>Кабинет управления secret-ссылками</h1>
       </div>
 
       <div class="header-actions">
         <div class="admin-chip">{{ admin?.username || 'admin' }}</div>
-        <button class="ghost-button" @click="manualSync" :disabled="loading.sync">
-          {{ loading.sync ? 'Синхронизация…' : 'Синхронизировать MTProxy' }}
-        </button>
         <button class="ghost-button" @click="logout">Выход</button>
       </div>
     </header>
 
+    <section v-if="mtproxyHealth" :class="['health-banner', mtproxyHealth.online ? 'online' : 'offline']">
+      <div class="health-banner-main">
+        <span class="health-dot" />
+        <div>
+          <strong>MTProxy {{ mtproxyHealth.online ? 'онлайн' : 'офлайн' }}</strong>
+          <p>
+            443: {{ mtproxyHealth.portListening ? 'слушает' : 'нет' }},
+            watchdog: {{ mtproxyHealth.watchdogActive ? 'включён' : 'выключен' }}
+          </p>
+        </div>
+      </div>
+      <div class="health-banner-meta">
+        <span>
+          Последний handshake:
+          {{ mtproxyHealth.lastHandshakeAt ? new Date(mtproxyHealth.lastHandshakeAt).toLocaleString() : '—' }}
+        </span>
+        <span>
+          Последний авто-рестарт:
+          {{ mtproxyHealth.lastAutoRestartAt ? mtproxyHealth.lastAutoRestartAt : '—' }}
+        </span>
+      </div>
+    </section>
+
+    <section v-if="summary" class="sync-banner">
+      <button class="ghost-button sync-banner-button" @click="manualSync" :disabled="loading.sync">
+        {{ loading.sync ? 'Синхронизация…' : 'Синхронизировать MTProxy' }}
+      </button>
+      <div class="sync-banner-meta">
+        Последнее обновление:
+        {{ summary.lastLogImportAt ? new Date(summary.lastLogImportAt).toLocaleString() : '—' }}
+      </div>
+    </section>
+
     <section class="stats-grid" v-if="summary">
-      <article class="stat-card">
+      <article class="stat-card overview-stat-card">
         <span>Всего ссылок</span>
         <strong>{{ summary.totals.total_secrets }}</strong>
       </article>
-      <article class="stat-card">
+      <article class="stat-card overview-stat-card">
         <span>Активные</span>
         <strong>{{ summary.totals.active_secrets }}</strong>
       </article>
-      <article class="stat-card">
-        <span>Уникальные IP за окно</span>
-        <strong>{{ summary.uniqueIpsWindow }}</strong>
+      <article class="stat-card overview-stat-card">
+        <span>Уникальные IP за 24 часа</span>
+        <strong>{{ summary.uniqueIps24h }}</strong>
       </article>
-      <article class="stat-card">
-        <span>Последний импорт логов</span>
-        <strong>{{ summary.lastLogImportAt ? new Date(summary.lastLogImportAt).toLocaleString() : '—' }}</strong>
+      <article class="stat-card overview-stat-card">
+        <span>Уникальные IP за 72 часа</span>
+        <strong>{{ summary.uniqueIps72h }}</strong>
       </article>
     </section>
 
@@ -386,7 +448,6 @@ onMounted(loadDashboard);
         <div class="panel-head">
           <h2>Ссылки</h2>
           <div class="header-actions">
-            <span class="muted">{{ filteredSecrets.length }} шт.</span>
             <button class="primary-button add-button" @click="openCreateModal">Добавить</button>
           </div>
         </div>
@@ -419,33 +480,31 @@ onMounted(loadDashboard);
               <table class="secrets-table">
                 <thead>
                   <tr>
+                    <th>ID</th>
+                    <th>Действие</th>
                     <th>Метка</th>
-                    <th>Группа</th>
                     <th>Статус</th>
                     <th>IP</th>
                     <th>Подкл.</th>
                     <th>Активно</th>
-                    <th>Слот</th>
                     <th>Последняя активность</th>
-                    <th></th>
+                    <th>Действие</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="secret in group.secrets" :key="secret.id">
                     <td>
-                      <strong>{{ secret.label }}</strong>
-                      <div class="muted small">{{ secret.maxUniqueIps }} IP лимит</div>
-                      <button class="mini-button cell-button" @click="showSecret(secret)">Открыть</button>
+                      <div>{{ secret.id }}</div>
                     </td>
                     <td>
-                      <div>{{ secret.groupName || '—' }}</div>
-                      <button class="mini-button cell-button" @click="openEditModal(secret)" :disabled="loading.meta">
-                        Редактировать
-                      </button>
+                      <button class="mini-button cell-button" @click="showSecret(secret)">Показать</button>
+                    </td>
+                    <td>
+                      <strong>{{ secret.label }}</strong>
+                      <div class="muted small">{{ secret.maxUniqueIps }} IP лимит</div>
                     </td>
                     <td>
                       <span :class="['status-pill', secret.status]">{{ statusLabel(secret.status) }}</span>
-                      <button class="mini-button cell-button" @click="rotateSecret(secret)">Обновить</button>
                     </td>
                     <td>
                       <strong>{{ secret.uniqueIpsWindow }}</strong>
@@ -456,11 +515,83 @@ onMounted(loadDashboard);
                     <td>
                       <strong>{{ secret.activeConnectionsNow }}</strong>
                     </td>
-                    <td>{{ secret.currentSlot ?? '—' }}</td>
                     <td>{{ secret.lastSeenAt ? new Date(secret.lastSeenAt).toLocaleString() : '—' }}</td>
                     <td class="row-actions">
-                      <button class="mini-button" @click="openEditModal(secret)" :disabled="loading.meta">
-                        Редактировать профиль
+                      <button class="mini-button success-mini-button icon-button" @click="refreshSecret(secret)" title="Обновить данные" aria-label="Обновить данные">
+                        <svg viewBox="0 0 20 20" aria-hidden="true">
+                          <path
+                            d="M16.2 10a6.2 6.2 0 1 1-1.82-4.38"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.8"
+                          />
+                          <path
+                            d="M16.2 4.2v3.4h-3.4"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.8"
+                          />
+                        </svg>
+                      </button>
+                      <button class="mini-button icon-button" @click="openEditModal(secret)" :disabled="loading.meta" title="Редактировать профиль" aria-label="Редактировать профиль">
+                        <svg viewBox="0 0 20 20" aria-hidden="true">
+                          <path
+                            d="M4 13.8V16h2.2l7-7-2.2-2.2-7 7Z"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.8"
+                          />
+                          <path
+                            d="M10.9 4.8 13.1 7m-1.1-3.3 1.1-1.1a1.56 1.56 0 1 1 2.2 2.2L14.2 6"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.8"
+                          />
+                        </svg>
+                      </button>
+                      <button class="mini-button danger-mini-button icon-button" @click="deleteSecret(secret)" title="Удалить" aria-label="Удалить">
+                        <svg viewBox="0 0 20 20" aria-hidden="true">
+                          <path
+                            d="M5.5 6.5h9"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.8"
+                          />
+                          <path
+                            d="M7.5 6.5V5.2c0-.66.54-1.2 1.2-1.2h2.6c.66 0 1.2.54 1.2 1.2v1.3"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.8"
+                          />
+                          <path
+                            d="M6.8 6.5l.6 8.1c.05.77.69 1.4 1.47 1.4h2.3c.78 0 1.42-.63 1.47-1.4l.6-8.1"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.8"
+                          />
+                          <path
+                            d="M8.8 9.2v4.2M11.2 9.2v4.2"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.8"
+                          />
+                        </svg>
                       </button>
                       <button
                         :class="['mini-button', secret.status === 'active' ? 'danger-mini-button' : 'success-mini-button']"
@@ -580,10 +711,18 @@ onMounted(loadDashboard);
     <section v-if="selectedSecret" ref="detailsSection" class="panel-card">
       <div class="panel-head">
         <div>
-          <h2>{{ selectedSecret.label }}</h2>
-          <p class="muted">{{ selectedSecret.proxyLink }}</p>
+          <h2>#{{ selectedSecret.id }} {{ selectedSecret.label }}</h2>
         </div>
-        <button class="ghost-button copy-button" @click="copyProxyLink(selectedSecret)">Копировать ссылку</button>
+      </div>
+
+      <div v-if="selectedStats" class="secret-link-grid">
+        <article class="stat-card compact-stat compact-link-card standalone-link-card">
+          <span>Ссылка пользователя</span>
+          <p class="muted compact-link-text">{{ selectedSecret.proxyLink }}</p>
+          <button class="ghost-button copy-button compact-copy-button" @click="copyProxyLink(selectedSecret)">
+            Копировать ссылку
+          </button>
+        </article>
       </div>
 
       <div v-if="selectedStats" class="secret-stats-grid">
@@ -634,6 +773,13 @@ onMounted(loadDashboard);
         </button>
         <button
           type="button"
+          :class="['tab-button', { active: detailsTab === 'ips' }]"
+          @click="detailsTab = 'ips'"
+        >
+          Уникальные IP
+        </button>
+        <button
+          type="button"
           :class="['tab-button', { active: detailsTab === 'hourly' }]"
           @click="detailsTab = 'hourly'"
         >
@@ -648,7 +794,7 @@ onMounted(loadDashboard);
         </button>
       </div>
 
-      <div class="history-grid" v-if="selectedStats && detailsTab !== 'events'">
+      <div class="history-grid" v-if="selectedStats && detailsTab !== 'events' && detailsTab !== 'ips'">
         <div class="table-wrap" v-if="detailsTab === 'hourly'">
           <table class="secrets-table">
             <thead>
@@ -667,7 +813,7 @@ onMounted(loadDashboard);
               <tr v-if="loading.stats">
                 <td colspan="5">Загружаем…</td>
               </tr>
-              <tr v-else v-for="item in selectedStats.historyHourly" :key="item.bucketStart">
+              <tr v-else v-for="item in selectedHourlyHistory" :key="item.bucketStart">
                 <td>{{ new Date(item.bucketStart).toLocaleString() }}</td>
                 <td>{{ item.uniqueIps }}</td>
                 <td>{{ item.handshakes }}</td>
@@ -696,7 +842,7 @@ onMounted(loadDashboard);
               <tr v-if="loading.stats">
                 <td colspan="5">Загружаем…</td>
               </tr>
-              <tr v-else v-for="item in selectedStats.historyDaily" :key="item.bucketStart">
+              <tr v-else v-for="item in selectedDailyHistory" :key="item.bucketStart">
                 <td>{{ new Date(item.bucketStart).toLocaleDateString() }}</td>
                 <td>{{ item.uniqueIps }}</td>
                 <td>{{ item.handshakes }}</td>
@@ -714,7 +860,6 @@ onMounted(loadDashboard);
             <tr>
               <th>Событие</th>
               <th>IP</th>
-              <th>Слот</th>
               <th>FD</th>
               <th>Длительность</th>
               <th>Время</th>
@@ -722,18 +867,46 @@ onMounted(loadDashboard);
           </thead>
           <tbody>
             <tr v-if="loading.events">
-              <td colspan="6">Загружаем…</td>
+              <td colspan="5">Загружаем…</td>
             </tr>
             <tr v-else-if="events.length === 0">
-              <td colspan="6">Событий пока нет</td>
+              <td colspan="5">Событий пока нет</td>
             </tr>
             <tr v-for="event in events" :key="event.id">
               <td>{{ eventLabel(event.event_type) }}</td>
               <td>{{ event.client_ip }}</td>
-              <td>{{ event.slot_index }}</td>
               <td>{{ event.connection_fd ?? '—' }}</td>
               <td>{{ event.duration_seconds ? `${event.duration_seconds} c` : '—' }}</td>
               <td>{{ new Date(event.connected_at).toLocaleString() }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap" v-if="detailsTab === 'ips'">
+        <table class="secrets-table">
+          <thead>
+            <tr>
+              <th>IP</th>
+              <th>Handshake</th>
+              <th>Отключений</th>
+              <th>Первая активность</th>
+              <th>Последняя активность</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading.ips">
+              <td colspan="5">Загружаем…</td>
+            </tr>
+            <tr v-else-if="uniqueIps.length === 0">
+              <td colspan="5">Уникальных IP пока нет</td>
+            </tr>
+            <tr v-for="ip in uniqueIps" :key="ip.client_ip">
+              <td>{{ ip.client_ip }}</td>
+              <td>{{ ip.handshakes_count }}</td>
+              <td>{{ ip.disconnects_count }}</td>
+              <td>{{ ip.first_seen_at ? new Date(ip.first_seen_at).toLocaleString() : '—' }}</td>
+              <td>{{ ip.last_seen_at ? new Date(ip.last_seen_at).toLocaleString() : '—' }}</td>
             </tr>
           </tbody>
         </table>

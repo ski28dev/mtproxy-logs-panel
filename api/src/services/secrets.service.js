@@ -321,6 +321,43 @@ export async function activateSecret(secretId) {
   return getSecret(secretId);
 }
 
+export async function deleteSecret(secretId) {
+  const secret = await getSecret(secretId);
+  if (!secret) {
+    throw notFound('Secret not found');
+  }
+
+  const [rows] = await pool.query(
+    `
+      SELECT COUNT(*) AS active_count
+      FROM proxy_secrets
+      WHERE status = 'active'
+    `
+  );
+
+  if (rows[0].active_count <= 1 && secret.status === 'active') {
+    throw badRequest('Cannot delete the last active secret');
+  }
+
+  await pool.query(
+    `
+      DELETE FROM proxy_secret_events
+      WHERE proxy_secret_id = ?
+    `,
+    [secretId]
+  );
+
+  await pool.query(
+    `
+      DELETE FROM proxy_secrets
+      WHERE id = ?
+    `,
+    [secretId]
+  );
+
+  return secret;
+}
+
 export async function rotateSecret(secretId) {
   const secret = await getSecret(secretId);
   if (!secret) {
@@ -408,6 +445,34 @@ export async function listSecretEvents(secretId, limit = 100) {
   return rows;
 }
 
+export async function listSecretUniqueIps(secretId, limit = 200) {
+  const secret = await getSecret(secretId);
+  if (!secret) {
+    throw notFound('Secret not found');
+  }
+
+  const [rows] = await pool.query(
+    `
+      SELECT
+        client_ip,
+        SUM(CASE WHEN event_type = 'handshake_ok' THEN 1 ELSE 0 END) AS handshakes_count,
+        SUM(CASE WHEN event_type = 'disconnect' THEN 1 ELSE 0 END) AS disconnects_count,
+        MIN(CASE WHEN event_type = 'handshake_ok' THEN connected_at END) AS first_seen_at,
+        MAX(CASE WHEN event_type = 'handshake_ok' THEN connected_at END) AS last_seen_at
+      FROM proxy_secret_events
+      WHERE proxy_secret_id = ?
+        AND client_ip IS NOT NULL
+        AND client_ip != ''
+      GROUP BY client_ip
+      ORDER BY last_seen_at DESC, handshakes_count DESC, client_ip ASC
+      LIMIT ?
+    `,
+    [secretId, limit]
+  );
+
+  return rows;
+}
+
 export async function getSecretStats(secretId) {
   const secret = await getSecret(secretId);
   if (!secret) {
@@ -461,12 +526,21 @@ export async function getDashboardSummary(windowHours) {
 
   const [usageRows] = await pool.query(
     `
-      SELECT COUNT(DISTINCT client_ip) AS unique_ips_window
+      SELECT
+        COUNT(DISTINCT CASE
+          WHEN connected_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR) THEN client_ip
+        END) AS unique_ips_24h,
+        COUNT(DISTINCT CASE
+          WHEN connected_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 72 HOUR) THEN client_ip
+        END) AS unique_ips_72h,
+        COUNT(DISTINCT CASE
+          WHEN connected_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? HOUR) THEN client_ip
+        END) AS unique_ips_window
       FROM proxy_secret_events
       WHERE event_type = 'handshake_ok'
-        AND connected_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? HOUR)
+        AND connected_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL GREATEST(72, ?) HOUR)
     `,
-    [windowHours]
+    [windowHours, windowHours]
   );
 
   const [metaRows] = await pool.query(
@@ -483,6 +557,8 @@ export async function getDashboardSummary(windowHours) {
 
   return {
     totals: summaryRows[0],
+    uniqueIps24h: usageRows[0]?.unique_ips_24h || 0,
+    uniqueIps72h: usageRows[0]?.unique_ips_72h || 0,
     uniqueIpsWindow: usageRows[0]?.unique_ips_window || 0,
     lastMtproxySyncAt: meta.last_mtproxy_sync_at?.updatedAt || null,
     lastLogImportAt: meta.last_log_import_at?.updatedAt || null
