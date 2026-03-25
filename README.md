@@ -201,6 +201,12 @@ cp templates/full-stack.quickstart.env /root/mtproxy-full-stack.env
 curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/scripts/bootstrap-from-github.sh | sudo bash
 ```
 
+Типовая команда для fresh server:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/scripts/bootstrap-from-github.sh | sudo REPO_REF=v0.5.2 bash
+```
+
 Что делает этот сценарий:
 
 - ставит `git`, `curl`, `openssl`
@@ -214,3 +220,19 @@ curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/sc
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/scripts/bootstrap-from-github.sh | sudo ENV_URL=https://example.com/mtproxy-full-stack.env bash
 ```
+
+Если хочешь управлять установкой через локальный env на сервере:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/templates/full-stack.quickstart.env -o /root/mtproxy-full-stack.env
+# отредактируй /root/mtproxy-full-stack.env
+curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/scripts/bootstrap-from-github.sh -o /root/bootstrap-from-github.sh
+sudo bash /root/bootstrap-from-github.sh
+```
+
+Итоговые доступы после установки:
+
+- runtime summary: `/root/mtproxy-full-stack-info.txt`
+- panel summary: `/root/mtproxy-logs-panel-info.txt`
+- runtime env: `/etc/mtproxy/mtproxy.env`
+- panel env: `/opt/mtproxy-logs-panel/api/.env`
