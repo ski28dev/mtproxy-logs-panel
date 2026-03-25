@@ -161,6 +161,21 @@ sudo chmod +x scripts/*.sh
 sudo ./scripts/install-full-stack.sh /root/mtproxy-full-stack.env
 ```
 
+Если нужен более быстрый старт под типовой single-server сценарий:
+
+```bash
+cp templates/full-stack.quickstart.env /root/mtproxy-full-stack.env
+```
+
+И потом обычно достаточно заменить:
+
+- `PANEL_HOST`
+- `PANEL_ORIGIN`
+- `PANEL_SERVER_NAMES`
+- `DB_PASSWORD`
+- `JWT_SECRET`
+- `ADMIN_PASSWORD`
+
 Что делает `install-full-stack.sh`:
 
 - ставит системные зависимости
@@ -177,3 +192,25 @@ sudo ./scripts/install-full-stack.sh /root/mtproxy-full-stack.env
 - это всё ещё `alpha`, а не идеальный production one-click installer
 - реальные `secret`, домены и `.env` в git не хранятся
 - если нужен домен в `nginx`, задай `PANEL_SERVER_NAMES`
+
+## Установка прямо из интернета
+
+Если нужен bootstrap прямо с GitHub:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/scripts/bootstrap-from-github.sh | sudo bash
+```
+
+Что делает этот сценарий:
+
+- ставит `git`, `curl`, `openssl`
+- клонирует `mtproxy-logs-panel`
+- создаёт `/root/mtproxy-full-stack.env` из quickstart-шаблона, если его ещё нет
+- автоматически подставляет IP сервера и генерирует пароли
+- запускает full-stack installer
+
+Если хочешь передать свой env-файл по URL:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/scripts/bootstrap-from-github.sh | sudo ENV_URL=https://example.com/mtproxy-full-stack.env bash
+```
