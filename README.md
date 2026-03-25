@@ -1,8 +1,30 @@
 # mtproxy-logs-panel
 
-Альфа-версия `v0.5.1`.
+Альфа-версия `v0.5.2`.
 
 `mtproxy-logs-panel` — это прикладной слой для управления `MTProxy` secret-ссылками.
+
+## Быстрый старт
+
+Если нужен самый короткий путь для fresh server:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/scripts/bootstrap-from-github.sh | sudo REPO_REF=v0.5.2 bash
+```
+
+После установки смотри:
+
+- `/root/mtproxy-full-stack-info.txt`
+- `/root/mtproxy-logs-panel-info.txt`
+
+Если хочешь сначала подправить переменные:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/templates/full-stack.quickstart.env -o /root/mtproxy-full-stack.env
+curl -fsSL https://raw.githubusercontent.com/ski28dev/mtproxy-logs-panel/main/scripts/bootstrap-from-github.sh -o /root/bootstrap-from-github.sh
+# отредактируй /root/mtproxy-full-stack.env
+sudo bash /root/bootstrap-from-github.sh
+```
 
 Внутри:
 
