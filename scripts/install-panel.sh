@@ -34,6 +34,7 @@ MTPROXY_LOG_PATH="${MTPROXY_LOG_PATH:-${LOG_DIR}/mtproxy.log}"
 MTPROXY_LOG_STATE_PATH="${MTPROXY_LOG_STATE_PATH:-${STATE_DIR}/log-state.json}"
 MTPROXY_SLOT_WINDOW_HOURS="${MTPROXY_SLOT_WINDOW_HOURS:-72}"
 ROOT_INFO_PATH="${ROOT_INFO_PATH:-/root/mtproxy-logs-panel-info.txt}"
+PANEL_SERVER_NAMES="${PANEL_SERVER_NAMES:-_}"
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -162,6 +163,7 @@ sed \
   -e "s|__PANEL_PORT__|${PANEL_PORT}|g" \
   -e "s|__WEB_ROOT__|${WEB_ROOT}|g" \
   -e "s|__API_PORT__|${API_PORT}|g" \
+  -e "s|__SERVER_NAMES__|${PANEL_SERVER_NAMES}|g" \
   "${REPO_DIR}/templates/mtproxy-panel.nginx.conf" > "${NGINX_CONF_PATH}"
 
 touch "${MTPROXY_LOG_PATH}"

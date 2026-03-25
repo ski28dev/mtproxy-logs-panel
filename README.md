@@ -1,6 +1,6 @@
 # mtproxy-logs-panel
 
-Альфа-версия `v0.5.0`.
+Альфа-версия `v0.5.1`.
 
 `mtproxy-logs-panel` — это прикладной слой для управления `MTProxy` secret-ссылками.
 
@@ -39,6 +39,12 @@
   REST API, инициализация БД, sync secret, импорт логов.
 - `web/`
   Nuxt frontend.
+- `scripts/install-full-stack.sh`
+  Почти автоматическая установка полного стека вместе с `mtproxy-logs`.
+- `scripts/smoke-check.sh`
+  Базовая проверка после установки.
+- `templates/full-stack.env.example`
+  Единый env-шаблон для full-stack restore.
 
 ## Требования
 
@@ -141,3 +147,33 @@ sudo PANEL_HOST=your-server-ip MTPROXY_HOST=your-server-ip ./scripts/install-pan
 - импортировать текущий `Initial MTProxy`
 - писать `managed_secrets.list`
 - импортировать `MTP_EVENT` из `/var/log/mtproxy/mtproxy.log`
+
+## Почти автоматическая установка полного стека
+
+Если нужно поднять `MTProxy runtime + panel` почти одной командой:
+
+```bash
+git clone https://github.com/ski28dev/mtproxy-logs-panel.git
+cd mtproxy-logs-panel
+cp templates/full-stack.env.example /root/mtproxy-full-stack.env
+# отредактируй /root/mtproxy-full-stack.env
+sudo chmod +x scripts/*.sh
+sudo ./scripts/install-full-stack.sh /root/mtproxy-full-stack.env
+```
+
+Что делает `install-full-stack.sh`:
+
+- ставит системные зависимости
+- клонирует `mtproxy-logs`
+- ставит `MTProxy runtime`
+- ставит panel
+- настраивает `nginx`
+- создаёт admin
+- пишет итоговую сводку в `/root/mtproxy-full-stack-info.txt`
+- запускает smoke-check
+
+Важно:
+
+- это всё ещё `alpha`, а не идеальный production one-click installer
+- реальные `secret`, домены и `.env` в git не хранятся
+- если нужен домен в `nginx`, задай `PANEL_SERVER_NAMES`
